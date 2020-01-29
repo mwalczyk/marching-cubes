@@ -1,0 +1,121 @@
+#version 460
+
+layout (local_size_x = 8, local_size_y = 8, local_size_z = 8) in;
+
+uniform float u_time;
+
+layout (rgba32f, binding = 0) writeonly uniform image3D u_output;
+
+vec3 domain_twist(in vec3 p, float t)
+{
+    float c = cos(t * p.y);
+    float s = sin(t * p.y);
+    mat2  m = mat2(c, -s, s, c);
+    vec3  q = vec3(m * p.xz, p.y);
+    return q;
+}
+
+vec3 domain_bend(in vec3 p, float t)
+{
+    float c = cos(t * p.y);
+    float s = sin(t * p.y);
+    mat2 m = mat2(c, -s, s, c);
+    vec3 q = vec3(m * p.xy, p.z);
+    return q;
+}
+
+float op_union(float a, float b)
+{
+    return min(a, b);
+}
+
+float op_subtract(float a, float b)
+{
+    return max(-a, b);
+}
+
+float op_intersect(float a, float b)
+{
+    return max(a, b);
+}
+
+float op_smooth_min(float a, float b, float k)
+{
+    float h = clamp(0.5 + 0.5 * (b - a) / k, 0.0, 1.0);
+    return mix(b, a, h) - k * h * (1.0 - h);
+}
+
+float sdf_sphere(in vec3 p, in vec3 center, float radius)
+{
+    return length(center - p) - radius;
+}
+
+float sdf_box(in vec3 p, in vec3 b)
+{
+  vec3 d = abs(p) - b;
+  return min(max(d.x, max(d.y, d.z)), 0.0) + length(max(d, 0.0));
+}
+
+float sdf_plane(in vec3 p, in float h)
+{
+    return p.y - h;
+}
+
+float sdf_torus(in vec3 p, in vec2 t)
+{
+    vec2 d = vec2(length(p.xz) - t.x, p.y);
+    return length(d) - t.y;
+}
+
+float map(in vec3 p)
+{
+    vec3 q = domain_twist(p, 5.0);
+
+    float d0 = sdf_torus(q, vec2(0.5, 0.25));
+    float d1 = sdf_sphere(p, vec3(0.0), 0.5);
+
+    float n = sin(20 * p.x + u_time) * sin(20 * p.y + u_time) * sin(20 * p.z + u_time);
+    const float displacement_amount = 0.1;
+
+    return op_smooth_min(d0, d1, 0.5) + n * displacement_amount;
+}
+
+vec3 calculate_normal(in vec3 p)
+{
+    const vec3 e = vec3(0.001, 0.0, 0.0);
+    vec3 n = vec3(map(p + e.xyy) - map(p - e.xyy),  // Gradient x
+                  map(p + e.yxy) - map(p - e.yxy),  // Gradient y
+                  map(p + e.yyx) - map(p - e.yyx)); // Gradient z
+
+    return normalize(n);
+}
+
+void main()
+{
+	// Resolution of the 3D texture (W, H, D) - integer values
+    ivec3 dims = imageSize(u_output);
+
+    // The 3D coordinates of this compute shader thread
+    ivec3 pixel_coords = ivec3(gl_GlobalInvocationID.xyz);
+
+    // The texture coordinate along each axis
+    vec3 uvw = pixel_coords / vec3(dims);
+    uvw = uvw * 2.0 - 1.0;
+
+    float dist = map(uvw);
+    vec3 norm = calculate_normal(uvw);
+
+    if (pixel_coords.x < 8 ||
+        pixel_coords.y < 8 ||
+        pixel_coords.z < 8 ||
+        pixel_coords.x > (dims.x - 8) ||
+        pixel_coords.y > (dims.y - 8) ||
+        pixel_coords.z > (dims.z - 8))
+    {
+        dist = 0.0;
+    }
+
+    // Store the distance (value) in the x-coordinate and the normal in the 
+    // yzw-coordinates
+    imageStore(u_output, pixel_coords, vec4(dist, norm.x, norm.y, norm.z));
+}
