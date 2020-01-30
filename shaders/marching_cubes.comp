@@ -4,7 +4,7 @@ layout (local_size_x = 8, local_size_y = 8, local_size_z = 8) in;
 
 uniform float u_isolevel;
 
-layout (rgba32f, binding = 0) readonly uniform image3D u_volume;
+layout (rgba16f, binding = 0) readonly uniform image3D u_volume;
 
 layout(std140, binding = 0) writeonly buffer u_buffer_vertices
 {
@@ -101,6 +101,7 @@ const ivec2 edge_table[12] =
 void march(in ivec3 cell_index)
 {
 	ivec3 volume_size = imageSize(u_volume);
+	vec3 inv_volume_size = 1.0 / vec3(volume_size);
 
 	// Avoid sampling outside of the volume bounds
 	if (cell_index.x == 0 || 
@@ -147,12 +148,15 @@ void march(in ivec3 cell_index)
 
 	// Grab all of the (interpolated) vertices along each of the 12 edges of this cell
 	Vertex vertex_list[12];
-	for (int i = 0; i < 12; ++i)
+	if (configuration_table[configuration] != 0) 
 	{
-		if (int(configuration_table[configuration] & (1 << i)) != 0)
-		{	
-			ivec2 edge = edge_table[i];
-			vertex_list[i] = find_vertex(u_isolevel, edge, values[edge.x], values[edge.y]);
+		for (int i = 0; i < 12; ++i)
+		{
+			if (int(configuration_table[configuration] & (1 << i)) != 0)
+			{	
+				ivec2 edge = edge_table[i];
+				vertex_list[i] = find_vertex(u_isolevel, edge, values[edge.x], values[edge.y]);
+			}
 		}
 	}
 	
@@ -174,28 +178,28 @@ void march(in ivec3 cell_index)
 			vec3 normal;
 
 			vertex = vertex_list[triangle_table[triangle_start_memory + (3 * i + 0)]];
-			position = vertex.position / vec3(volume_size);
+			position = vertex.position * inv_volume_size;
 			position = position * 2.0 - 1.0;
 			output_vertices[cell_start_memory +  3 * i + 0] = vec4(position, 1.0);
 			output_normals[cell_start_memory +  3 * i + 0] = vec4(vertex.normal, 1.0);
 
 			vertex = vertex_list[triangle_table[triangle_start_memory + (3 * i + 1)]];
-			position = vertex.position / vec3(volume_size);
+			position = vertex.position * inv_volume_size;
 			position = position * 2.0 - 1.0;
 			output_vertices[cell_start_memory +  3 * i + 1] = vec4(position, 1.0);
 			output_normals[cell_start_memory +  3 * i + 1] = vec4(vertex.normal, 1.0);
 
 			vertex = vertex_list[triangle_table[triangle_start_memory + (3 * i + 2)]];
-			position = vertex.position / vec3(volume_size);
+			position = vertex.position * inv_volume_size;
 			position = position * 2.0 - 1.0;
 			output_vertices[cell_start_memory +  3 * i + 2] = vec4(position, 1.0);
 			output_normals[cell_start_memory +  3 * i + 2] = vec4(vertex.normal, 1.0);
 		}
 		else
 		{
-			output_vertices[cell_start_memory +  (3 * i + 0)] = empty;
-			output_vertices[cell_start_memory +  (3 * i + 1)] = empty;
-			output_vertices[cell_start_memory +  (3 * i + 2)] = empty;
+			output_vertices[cell_start_memory + (3 * i + 0)] = empty;
+			output_vertices[cell_start_memory + (3 * i + 1)] = empty;
+			output_vertices[cell_start_memory + (3 * i + 2)] = empty;
 		}
 	} 
 

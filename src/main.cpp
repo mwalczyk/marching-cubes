@@ -203,7 +203,7 @@ int main()
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
     glfwWindowHint(GLFW_RESIZABLE, false);
     glfwWindowHint(GLFW_SAMPLES, 4);
-    GLFWwindow* window = glfwCreateWindow(window_w, window_h, "Hopf Fibration", nullptr, nullptr);
+    GLFWwindow* window = glfwCreateWindow(window_w, window_h, "Marching Cubes", nullptr, nullptr);
 
     if (window == nullptr)
     {
@@ -244,13 +244,14 @@ int main()
         glEnable(GL_DEPTH_TEST);
 
         glEnable(GL_CULL_FACE);
+        glCullFace(GL_BACK);
     }
     
     // Create the 3D texture that we will write volume data to
     uint32_t texture_volume_data;
     {
         glCreateTextures(GL_TEXTURE_3D, 1, &texture_volume_data);
-        glTextureStorage3D(texture_volume_data, 1, GL_RGBA32F, volume_size.x, volume_size.y, volume_size.z);
+        glTextureStorage3D(texture_volume_data, 1, GL_RGBA16F, volume_size.x, volume_size.y, volume_size.z);
         glTextureParameteri(texture_volume_data, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTextureParameteri(texture_volume_data, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
         glTextureParameteri(texture_volume_data, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
@@ -262,7 +263,7 @@ int main()
     uint32_t texture_debug;
     {
         glCreateTextures(GL_TEXTURE_2D, 1, &texture_debug);
-        glTextureStorage2D(texture_debug, 1, GL_RGBA32F, volume_size.x, volume_size.y);
+        glTextureStorage2D(texture_debug, 1, GL_RGBA16F, volume_size.x, volume_size.y);
         glTextureParameteri(texture_debug, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTextureParameteri(texture_debug, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
         glTextureParameteri(texture_debug, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
@@ -632,7 +633,7 @@ int main()
 
         // Set image bindpoints:
         // 0 -> image where volume data will be written / read from
-        glBindImageTexture(0, texture_volume_data, 0, true, 0, GL_READ_WRITE, GL_RGBA32F);
+        glBindImageTexture(0, texture_volume_data, 0, true, 0, GL_READ_WRITE, GL_RGBA16F);
     }
 
     bool first_frame = false;
@@ -689,16 +690,18 @@ int main()
             }
 
             // Run the compute shader that clears / animates the volume texture
+            auto local_size = shader_clear.get_local_size();
             shader_clear.use();
             shader_clear.uniform_float("u_time", glfwGetTime());
-            glDispatchCompute(volume_size.x / 8, volume_size.y / 8, volume_size.z / 8);
+            glDispatchCompute(volume_size.x / local_size.x, volume_size.y / local_size.y, volume_size.z / local_size.z);
             glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
             first_frame = true;
 
             // Run the compute shader that performs marching cubes
+            local_size = shader_marching_cubes.get_local_size();
             shader_marching_cubes.use();
             shader_marching_cubes.uniform_float("u_isolevel", isolevel);
-            glDispatchCompute(volume_size.x / 8, volume_size.y / 8, volume_size.z / 8);
+            glDispatchCompute(volume_size.x / local_size.x, volume_size.y / local_size.y, volume_size.z / local_size.z);
             glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_VERTEX_ATTRIB_ARRAY_BARRIER_BIT);
 
             // Draw the results

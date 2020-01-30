@@ -67,10 +67,12 @@ namespace graphics
             glUseProgram(program_id);
         }
 
-        void get_local_size()
+        glm::ivec3 get_local_size()
         {
             int local_size[3];
             glGetProgramiv(program_id, GL_COMPUTE_WORK_GROUP_SIZE, local_size);
+
+            return { local_size[0], local_size[1], local_size[2] };
         }
 
         void uniform_bool(const std::string& name, bool value) const
@@ -135,6 +137,22 @@ namespace graphics
         uint32_t program_id;
         std::unordered_map<std::string, UniformEntry> uniforms;
 
+        std::string get_shader_type(uint32_t type)
+        {
+            switch (type)
+            {
+            case GL_VERTEX_SHADER:
+                return "vertex";
+            case GL_FRAGMENT_SHADER:
+                return "fragment";
+            case GL_COMPUTE_SHADER:
+                return "compute";
+
+            default:
+                return "unknown";
+            }
+        }
+
         uint32_t compile_shader_module(const std::string& path, uint32_t type)
         {
             std::string code;
@@ -165,7 +183,7 @@ namespace graphics
             uint32_t shader_module = glCreateShader(type);
             glShaderSource(shader_module, 1, &shader_code, NULL);
             glCompileShader(shader_module);
-            check_compilation_errors(shader_module, type == GL_VERTEX_SHADER ? "vertex" : "fragment");
+            check_compilation_errors(shader_module, get_shader_type(type));
 
             return shader_module;
         }

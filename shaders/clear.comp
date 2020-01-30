@@ -4,7 +4,7 @@ layout (local_size_x = 8, local_size_y = 8, local_size_z = 8) in;
 
 uniform float u_time;
 
-layout (rgba32f, binding = 0) writeonly uniform image3D u_output;
+layout (rgba16f, binding = 0) writeonly uniform image3D u_output;
 
 vec3 domain_twist(in vec3 p, float t)
 {
