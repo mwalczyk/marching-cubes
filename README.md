@@ -15,7 +15,7 @@ The algorithm readily lends itself to parallelization, as the results from any o
 
 ### Method
 
-The volume data is held within a 3D texture that is "animated" every frame by the first compute shader pass. By default, a (sculpted) signed-distance field of a "distored" torus + sphere is drawn. The next compute shader pass runs the marching cubes algorithm. Specifically, it examines each cell (voxel) of the 3D volume texture and determines which (and how many) triangles to draw. The resulting triangle data (positions and normals) is written into two write-only buffers, which are subsequently used to draw a triangular mesh with a vertex + fragment shader. For now, the normals are calculated by taking the gradient of the signed-distance function (see Inigo Quilez's website below for details).
+The volume data is held within a 3D texture that is "animated" every frame by the first compute shader pass. By default, a (sculpted) noise field is drawn. The next compute shader pass runs the marching cubes algorithm. Specifically, it examines each cell (voxel) of the 3D volume texture and determines which (and how many) triangles to draw. The resulting triangle data (positions and normals) is written into two write-only buffers, which are subsequently used to draw a triangular mesh with a vertex + fragment shader. For now, the normals are calculated by taking the gradient of the signed-distance function (see Inigo Quilez's website below for details).
 
 ## Tested On
 - Windows 10
