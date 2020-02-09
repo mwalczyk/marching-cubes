@@ -44,10 +44,25 @@ cmake ..
   <img src="https://github.com/mwalczyk/marching-cubes/blob/master/screenshots/interface.png" alt="screenshot" width="400" height="auto"/>
 </p>
 
+Upon launching the application, you should see two separate UI panels labeled:
+
+- **Marching Cubes on the GPU**: contains controls for adjusting the isolevel, mode selection, etc.
+- **Debug**: displays different "slices" (layers) of the 3D volume texture
+
+You can choose between five basic modes:
+- Fractal noise (default)
+- Sphere
+- Box
+- Torus
+- Metaballs
+
+Each mode corresponds to a change in the underlying scalar field that will be used to generate triangles.
+
 You can use your mouse to rotate the model in space. You can zoom in or out with your scroll wheel. Finally, you can "home" (i.e. reset) the current view by pressing `h` on your keyboard.
 
 ## To Do
 - [ ] Add shadows
+- [ ] Add GLSL editor for prototyping SDFs
 
 ## Credits
 This project was largely inspired by and based on previous work done by [Paul Bourke](http://paulbourke.net/geometry/polygonise/). Many of the functions used for the signed-distance field evaluation are taken from [Inigo Quilez's](https://iquilezles.org/www/articles/distfunctions/distfunctions.htm) amazing website. The 3D noise function is taken from [Patricio Gonzalez Vivo's](https://gist.github.com/patriciogonzalezvivo/670c22f3966e662d2f83) GitHub.
