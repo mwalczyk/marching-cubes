@@ -40,6 +40,10 @@ cmake ..
 
 ## To Use
 
+<p align="center">
+  <img src="https://github.com/mwalczyk/marching-cubes/blob/master/screenshots/interface.png" alt="screenshot" width="400" height="auto"/>
+</p>
+
 You can use your mouse to rotate the model in space. You can zoom in or out with your scroll wheel. Finally, you can "home" (i.e. reset) the current view by pressing `h` on your keyboard.
 
 ## To Do

@@ -11,7 +11,7 @@ in VS_OUT
 void main() 
 {	
 	// Some very basic diffuse lighting...
-	const vec3 light_position = vec3(0.0, 4.0, 0.0);
+	const vec3 light_position = vec3(1.0, 5.0, 0.0);
 	const vec3 to_light = normalize(light_position - fs_in.position);
 	float intensity = max(0.5, dot(to_light, fs_in.normal));
 
