@@ -12,15 +12,13 @@ layout(location = 1) in vec4 i_normal;
 out VS_OUT
 {
 	vec3 position;
-	vec3 normal;
+	flat vec3 normal; // Draw with flat shading
 } vs_out;
 
 void main() 
 {
-	vec4 world_space = u_model * i_position;
+    gl_Position = u_projection * u_view * u_model * i_position;
 
-    gl_Position = u_projection * u_view * world_space;
-
-    vs_out.position = world_space.xyz;
+    vs_out.position = i_position.xyz;
     vs_out.normal = normalize(i_normal.xyz);
 }

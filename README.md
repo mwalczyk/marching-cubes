@@ -46,7 +46,7 @@ You can use your mouse to rotate the model in space. You can zoom in or out with
 - [ ] Add shadows
 
 ## Credits
-This project was largely inspired by and based on previous work done by [Paul Bourke](http://paulbourke.net/geometry/polygonise/). Many of the functions used for the signed-distance field evaluation are taken from [Inigo Quilez's](https://iquilezles.org/www/articles/distfunctions/distfunctions.htm) amazing website.
+This project was largely inspired by and based on previous work done by [Paul Bourke](http://paulbourke.net/geometry/polygonise/). Many of the functions used for the signed-distance field evaluation are taken from [Inigo Quilez's](https://iquilezles.org/www/articles/distfunctions/distfunctions.htm) amazing website. The 3D noise function is taken from [Patricio Gonzalez Vivo's](https://gist.github.com/patriciogonzalezvivo/670c22f3966e662d2f83) GitHub.
 
 ### License
 [Creative Commons Attribution 4.0 International License](https://creativecommons.org/licenses/by/4.0/)

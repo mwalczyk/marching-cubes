@@ -3,8 +3,29 @@
 layout (local_size_x = 8, local_size_y = 8, local_size_z = 8) in;
 
 uniform float u_time;
+uniform int u_mode_index;
+uniform float u_twist;
+uniform float u_bend;
 
 layout (rgba16f, binding = 0) writeonly uniform image3D u_output;
+
+const float pi = 3.1415926535897932384626433832795;
+const float pi_over_two = 1.57079632679489661923;
+const float pi_over_four = 0.785398163397448309616;
+
+mat4 rotation(vec3 axis, float angle)
+{
+    axis = normalize(axis);
+    float s = sin(angle);
+    float c = cos(angle);
+    float oc = 1.0 - c;
+    
+    return mat4(oc * axis.x * axis.x + c,           oc * axis.x * axis.y - axis.z * s,  oc * axis.z * axis.x + axis.y * s,  0.0,
+                oc * axis.x * axis.y + axis.z * s,  oc * axis.y * axis.y + c,           oc * axis.y * axis.z - axis.x * s,  0.0,
+                oc * axis.z * axis.x - axis.y * s,  oc * axis.y * axis.z + axis.x * s,  oc * axis.z * axis.z + c,           0.0,
+                0.0,                                0.0,                                0.0,                                1.0);
+
+}
 
 vec3 domain_twist(in vec3 p, float t)
 {
@@ -21,6 +42,18 @@ vec3 domain_bend(in vec3 p, float t)
     float s = sin(t * p.y);
     mat2 m = mat2(c, -s, s, c);
     vec3 q = vec3(m * p.xy, p.z);
+    return q;
+}
+
+vec3 domain_repeat(in vec3 p, in vec3 c)
+{
+    vec3 q = mod(p + 0.5 * c, c) - 0.5 * c;
+    return q;
+}
+
+vec3 domain_repeat_limited(in vec3 p, in float c, in vec3 l)
+{
+    vec3 q = p - c * clamp(round(p / c), -l, l);
     return q;
 }
 
@@ -45,6 +78,11 @@ float op_smooth_min(float a, float b, float k)
     return mix(b, a, h) - k * h * (1.0 - h);
 }
 
+float op_round(float a, float radius)
+{
+    return a - radius;
+}
+
 float sdf_sphere(in vec3 p, in vec3 center, float radius)
 {
     return length(center - p) - radius;
@@ -56,28 +94,101 @@ float sdf_box(in vec3 p, in vec3 b)
   return min(max(d.x, max(d.y, d.z)), 0.0) + length(max(d, 0.0));
 }
 
-float sdf_plane(in vec3 p, in float h)
-{
-    return p.y - h;
-}
-
 float sdf_torus(in vec3 p, in vec2 t)
 {
     vec2 d = vec2(length(p.xz) - t.x, p.y);
     return length(d) - t.y;
 }
 
+float mod289(float x) 
+{
+    return x - floor(x * (1.0 / 289.0)) * 289.0; 
+}
+
+vec4 mod289(in vec4 x) 
+{
+    return x - floor(x * (1.0 / 289.0)) * 289.0; 
+}
+
+vec4 permute(in vec4 x) 
+{
+    return mod289(((x * 34.0) + 1.0) * x); 
+}
+
+float noise(in vec3 p)
+{
+    vec3 a = floor(p);
+    vec3 d = p - a;
+    d = d * d * (3.0 - 2.0 * d);
+
+    vec4 b = a.xxyy + vec4(0.0, 1.0, 0.0, 1.0);
+    vec4 k1 = permute(b.xyxy);
+    vec4 k2 = permute(k1.xyxy + b.zzww);
+
+    vec4 c = k2 + a.zzzz;
+    vec4 k3 = permute(c);
+    vec4 k4 = permute(c + 1.0);
+
+    vec4 o1 = fract(k3 * (1.0 / 41.0));
+    vec4 o2 = fract(k4 * (1.0 / 41.0));
+
+    vec4 o3 = o2 * d.z + o1 * (1.0 - d.z);
+    vec2 o4 = o3.yw * d.x + o3.xz * (1.0 - d.x);
+
+    return o4.y * d.y + o4.x * (1.0 - d.y);
+}
+
+float fbm(in vec3 p) 
+{
+    const int number_of_octaves = 5;
+
+    float v = 0.0;
+    float a = 0.5;
+    vec3 shift = vec3(100);
+
+    for (int i = 0; i < number_of_octaves; ++i) 
+    {
+        v += a * noise(p);
+        p = p * 2.0 + shift;
+        a *= 0.5;
+    }
+
+    return v;
+}
+
 float map(in vec3 p)
 {
-    vec3 q = domain_twist(p, 5.0);
+    vec3 q = domain_bend(domain_twist(p, u_twist), u_bend);
+    float dist;
 
-    float d0 = sdf_torus(q, vec2(0.5, 0.25));
-    float d1 = sdf_sphere(p, vec3(0.0), 0.5);
+    switch (u_mode_index)
+    {
+        case 0:
+            dist = fbm(p * 2.0) * 2.0 - 1.0;
+            dist = op_intersect(dist, sdf_sphere(p, vec3(0.0), 0.9));
+            break;
+        case 1:
+            dist = sdf_sphere(q, vec3(0.0), 0.5);
+            break;
+        case 2:
+            dist = sdf_box(q, vec3(0.5));
+            dist = op_round(dist, 0.125);
+            break;
+        case 3:
+            dist = sdf_torus(q, vec2(0.5, 0.25));
+            break;
+        case 4: 
+            vec3 r = domain_repeat_limited(q, 0.5, vec3(1.0));
+            vec3 ipos = floor(r);
+            float c = cos(u_time) * 0.5;
+            float s = sin(u_time) * 0.5;
+            dist = sdf_sphere(q, vec3(s, 0.0, c), 0.5);
+            dist = op_smooth_min(dist, sdf_sphere(r, vec3(0.0), 0.125), 0.2);
+        default:
+            break;
+    }
 
-    float n = sin(20 * p.x + u_time) * sin(20 * p.y + u_time) * sin(20 * p.z + u_time);
-    const float displacement_amount = 0.1;
-
-    return op_smooth_min(d0, d1, 0.5) + n * displacement_amount;
+    return dist;
 }
 
 vec3 calculate_normal(in vec3 p)
@@ -88,6 +199,30 @@ vec3 calculate_normal(in vec3 p)
                   map(p + e.yyx) - map(p - e.yyx)); // Gradient z
 
     return normalize(n);
+}
+
+
+float ambient_occlusion(in vec3 p, in vec3 n)
+{   
+    const float attenuation = 0.895;
+    float ao;
+    float accum = 0.0;
+    float scale = 1.0;
+    for(int step = 0; step < 5; step++)
+    {
+        float hr = 0.01 + 0.02 * float(step * step);
+        vec3 aopos = n * hr + p;
+        
+        float dist = map(aopos);
+        ao = -(dist - hr);
+        
+        accum += ao * scale;
+        
+        scale *= attenuation;
+    }
+    ao = 1.0 - clamp(accum, 0.0, 1.0);
+    
+    return ao;
 }
 
 void main()
@@ -104,17 +239,21 @@ void main()
 
     float dist = map(uvw);
     vec3 norm = calculate_normal(uvw);
+    float ao = ambient_occlusion(uvw, norm);
 
-    if (pixel_coords.x < 8 ||
-        pixel_coords.y < 8 ||
-        pixel_coords.z < 8 ||
-        pixel_coords.x > (dims.x - 8) ||
-        pixel_coords.y > (dims.y - 8) ||
-        pixel_coords.z > (dims.z - 8))
+    const bool clamp_to_borders = false;
+    if (clamp_to_borders)
     {
-        dist = 0.0;
+        if (pixel_coords.x < 8 ||
+            pixel_coords.y < 8 ||
+            pixel_coords.z < 8 ||
+            pixel_coords.x > (dims.x - 8) ||
+            pixel_coords.y > (dims.y - 8) ||
+            pixel_coords.z > (dims.z - 8))
+        {
+            dist = 0.0;
+        }
     }
-
     // Store the distance (value) in the x-coordinate and the normal in the 
     // yzw-coordinates
     imageStore(u_output, pixel_coords, vec4(dist, norm.x, norm.y, norm.z));

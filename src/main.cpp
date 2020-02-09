@@ -28,10 +28,14 @@ glm::mat4 arcball_camera_matrix = glm::lookAt(glm::vec3{ 0.0f, 0.0f, 4.0f }, glm
 glm::mat4 arcball_model_matrix = glm::mat4{ 1.0f };
 
 // Global settings
-const auto volume_size = glm::uvec3{ 128, 128, 128 };
+const std::vector<std::string> modes = { "FBM Noise", "SDF Sphere", "SDF Box", "SDF Torus", "SDF Metaballs" };
+std::string current_mode = modes[0];
+float twist = 0.0f;
+float bend = 0.0f;
+const auto volume_size = glm::uvec3{ 64, 64, 64 };
 size_t debug_layer = volume_size.z / 2;
 float isolevel = 0.0f;
-bool wireframe = false;
+bool wireframe = true;
 
 // Appearance settings
 ImVec4 clear_color = ImVec4(0.51f, 0.44f, 0.51f, 1.0f);
@@ -243,8 +247,8 @@ int main()
 #endif
         glEnable(GL_DEPTH_TEST);
 
-        glEnable(GL_CULL_FACE);
-        glCullFace(GL_BACK);
+        //glEnable(GL_CULL_FACE);
+       // glCullFace(GL_BACK);
     }
     
     // Create the 3D texture that we will write volume data to
@@ -653,6 +657,24 @@ int main()
         {
             ImGui::Begin("Marching Cubes on the GPU");        
             ImGui::Text("Volume Size (Voxels): %d x %d x %d", volume_size.x, volume_size.y, volume_size.z);
+            if (ImGui::BeginCombo("Mode", current_mode.c_str()))
+            {
+                for (size_t i = 0; i < modes.size(); ++i)
+                {
+                    bool is_selected = current_mode.c_str() == modes[i];
+                    if (ImGui::Selectable(modes[i].c_str(), is_selected))
+                    {
+                        current_mode = modes[i];
+                    }
+                    if (is_selected)
+                    {
+                        ImGui::SetItemDefaultFocus();
+                    }
+                }
+                ImGui::EndCombo();
+            }
+            ImGui::SliderFloat("Twist", &twist, -glm::pi<float>(), glm::pi<float>());
+            ImGui::SliderFloat("Bend", &bend, -2.0f, 2.0f);
             ImGui::Checkbox("Draw Wireframe", &wireframe);
             ImGui::SliderFloat("Isolevel", &isolevel, -1.0f, 1.0f);
             ImGui::ColorEdit3("Background Color", (float*)&clear_color);
@@ -664,8 +686,8 @@ int main()
             {
                 // Copy one layer of the 3D volume texture into the "debug" 2D texture for display
                 glCopyImageSubData(texture_volume_data, GL_TEXTURE_3D, 0, 0, 0, debug_layer,
-                    texture_debug, GL_TEXTURE_2D, 0, 0, 0, 0,
-                    volume_size.x, volume_size.y, 1);
+                                   texture_debug, GL_TEXTURE_2D, 0, 0, 0, 0,
+                                   volume_size.x, volume_size.y, 1);
 
                 first_frame = false;
             }
@@ -691,8 +713,32 @@ int main()
 
             // Run the compute shader that clears / animates the volume texture
             auto local_size = shader_clear.get_local_size();
+            size_t mode_index = 0;
+            if (current_mode == "FBM Noise")
+            {
+                mode_index = 0;
+            }
+            else if (current_mode == "SDF Sphere")
+            {
+                mode_index = 1;
+            }
+            else if (current_mode == "SDF Box")
+            {
+                mode_index = 2;
+            }
+            else if (current_mode == "SDF Torus")
+            {
+                mode_index = 3;
+            }
+            else if (current_mode == "SDF Metaballs")
+            {
+                mode_index = 4;
+            }
             shader_clear.use();
             shader_clear.uniform_float("u_time", glfwGetTime());
+            shader_clear.uniform_int("u_mode_index", mode_index);
+            shader_clear.uniform_float("u_twist", twist);
+            shader_clear.uniform_float("u_bend", bend);
             glDispatchCompute(volume_size.x / local_size.x, volume_size.y / local_size.y, volume_size.z / local_size.z);
             glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
             first_frame = true;
