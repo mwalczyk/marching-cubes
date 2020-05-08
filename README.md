@@ -1,8 +1,8 @@
-# marching cubes
+# Marching Cubes
 🧊 A graphical program for exploring marching cubes + compute shaders in real-time.
 
 <p align="center">
-  <img src="https://github.com/mwalczyk/marching-cubes/blob/master/screenshots/marching_cubes.png" alt="screenshot" width="400" height="auto"/>
+  <img src="https://raw.githubusercontent.com/mwalczyk/marching-cubes/master/screenshots/marching_cubes.png" alt="screenshot" width="400" height="auto"/>
 </p>
 
 ## Description
