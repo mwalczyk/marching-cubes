@@ -41,7 +41,7 @@ cmake ..
 ## To Use
 
 <p align="center">
-  <img src="https://github.com/mwalczyk/marching-cubes/blob/master/screenshots/interface.png" alt="screenshot" width="400" height="auto"/>
+  <img src="https://raw.githubusercontent.com/mwalczyk/marching-cubes/master/screenshots/interface.png" alt="screenshot" width="400" height="auto"/>
 </p>
 
 Upon launching the application, you should see two separate UI panels labeled:
